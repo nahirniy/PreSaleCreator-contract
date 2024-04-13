@@ -204,6 +204,29 @@ contract TokenSaleFactory is Ownable {
         emit PresaleUnpaused(_id, block.timestamp);
     }
 
+    function checkUserBalance(
+        uint _id,
+        address _user
+    ) external view checkPresaleId(_id) returns (uint) {
+        return _userVesting[_id][_user];
+    }
+
+    function presaleTokenBalance(
+        uint _id
+    ) public view checkPresaleId(_id) returns (uint) {
+        IERC20 token = IERC20(presale[_id].saleToken);
+
+        return token.balanceOf(address(this));
+    }
+
+    function ethBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+
+    function usdtBalance() public view returns (uint) {
+        return usdt.balanceOf(address(this));
+    }
+
     function updateTokenPrice(
         uint _id,
         uint _newPrice
@@ -314,5 +337,30 @@ contract TokenSaleFactory is Ownable {
             block.timestamp,
             _id
         );
+    }
+
+    function withdrawETH(address _to, uint _amount) external onlyOwner {
+        require(ethBalance() >= _amount, "insufficient ETH balance");
+
+        payable(_to).transfer(_amount);
+    }
+
+    function withdrawUSDT(address _to, uint _amount) external onlyOwner {
+        require(usdtBalance() >= _amount, "insufficient USDT balance");
+
+        usdt.transfer(_to, _amount);
+    }
+
+    function withdrawToken(
+        uint _id,
+        uint _amount
+    ) external checkPresaleId(_id) onlyOwner {
+        require(
+            presale[_id].availableTokens >= _amount,
+            "insufficient token balance"
+        );
+        IERC20 token = IERC20(presale[_id].saleToken);
+
+        token.transfer(msg.sender, _amount);
     }
 }
