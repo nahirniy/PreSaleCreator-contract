@@ -135,4 +135,33 @@ contract SolarGreen is ERC20, AccessControl {
     function isBlacklisted(address _address) external view returns (bool) {
         return _blacklist[_address];
     }
+
+    /**
+     * @dev Transfers tokens from the sender to the specified recipient.
+     * @param _to The address to which tokens will be transferred.
+     * @param _value The amount of tokens to transfer.
+     * @return A boolean indicating whether the transfer was successful.
+     * @notice Requires that the recipient is not blacklisted.
+     */
+    function transfer(address _to, uint _value) public override returns (bool) {
+        require(!_blacklist[_to], "recipient is blocked");
+        return super.transfer(_to, _value);
+    }
+
+    /**
+     * @dev Transfers tokens on behalf of a token holder.
+     * @param _from The address from which tokens will be transferred.
+     * @param _to The address to which tokens will be transferred.
+     * @param _value The amount of tokens to transfer.
+     * @return A boolean indicating whether the transfer was successful.
+     * @notice Requires that the recipient is not blacklisted.
+     */
+    function transferFrom(
+        address _from,
+        address _to,
+        uint _value
+    ) public override returns (bool) {
+        require(!_blacklist[_to], "recipient is blocked");
+        return super.transferFrom(_from, _to, _value);
+    }
 }
