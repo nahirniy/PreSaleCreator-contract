@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract TokenSaleFactory is Ownable {
+contract PresaleFactory is Ownable {
     uint public presaleId;
     IERC20 public usdt;
 
@@ -58,6 +58,16 @@ contract TokenSaleFactory is Ownable {
     event UpdatedSaleEnd(uint indexed _id, uint _newTime, uint _timestamp);
     event UpdatedVestingEnd(uint indexed _id, uint _newTime, uint _timestamp);
 
+    event WithdrawUSDT(address _to, uint _amount, uint _timestamp);
+    event WithdrawETH(address _to, uint _amount, uint _timestamp);
+    event WithdrawPresaleToken(
+        uint indexed _id,
+        address _to,
+        address _token,
+        uint _amount,
+        uint _timestamp
+    );
+
     constructor(
         address _oracle,
         address _usdt,
@@ -79,6 +89,11 @@ contract TokenSaleFactory is Ownable {
         _;
     }
 
+    /**
+     * @dev Checks whether the specified address contains contract code.
+     * @param _address The address to be checked.
+     * @return True if the address contains contract code, false otherwise.
+     */
     function _isContract(address _address) internal view returns (bool) {
         uint codeSize;
         assembly {
@@ -87,6 +102,12 @@ contract TokenSaleFactory is Ownable {
         return codeSize > 0;
     }
 
+    /**
+     * @dev Verifies the purchase parameters to ensure that the purchase is valid.
+     * @param _id The ID of the presale.
+     * @param _amountTokens The number of tokens being purchased.
+     * @param _buyer The address of the buyer.
+     */
     function _verifyPurchase(
         uint _id,
         uint _amountTokens,
@@ -110,6 +131,12 @@ contract TokenSaleFactory is Ownable {
         require(_amountTokens > 0, "not enough funds!");
     }
 
+    /**
+     * @dev Executes the purchase of tokens and updates the relevant data accordingly.
+     * @param _id The ID of the presale.
+     * @param _amountTokens The number of tokens being purchased.
+     * @param _buyer The address of the buyer.
+     */
     function _tokenPurchase(
         uint _id,
         uint _amountTokens,
@@ -127,6 +154,17 @@ contract TokenSaleFactory is Ownable {
         );
     }
 
+    /**
+     * @dev Creates a new presale with the specified parameters.
+     * @param _saleToken The address of the token being sold in the presale.
+     * @param _startTime The start time of the presale.
+     * @param _endTime The end time of the presale.
+     * @param _tokenPrice The price of each token in the presale.
+     * @param _availableTokens The total number of tokens available for sale in the presale.
+     * @param _limitPerUser The maximum number of tokens each user can purchase in the presale.
+     * @param _precision The precision of the token price (e.g., number of decimal places).
+     * @param _vestingEndTime The end time for vesting of purchased tokens.
+     */
     function createPresale(
         address _saleToken,
         uint _startTime,
@@ -174,6 +212,15 @@ contract TokenSaleFactory is Ownable {
         );
     }
 
+    /**
+     * @dev Starts the presale with the specified ID.
+     * @param _id The ID of the presale to start.
+     * Requirements:
+     * - The presale must not have already started.
+     * - There must be tokens available for sale in the contract.
+     * - The initial supply of tokens must match the available tokens for sale.
+     */
+
     function startSale(uint _id) external checkPresaleId(_id) onlyOwner {
         IERC20 token = IERC20(presale[_id].saleToken);
 
@@ -190,20 +237,40 @@ contract TokenSaleFactory is Ownable {
         presale[_id].saleActive = true;
     }
 
+    /**
+     * @dev Pauses the presale with the specified ID.
+     * @param _id The ID of the presale to pause.
+     * Requirements:
+     * - The presale must be currently active.
+     */
     function pausePresale(uint _id) external checkPresaleId(_id) onlyOwner {
-        require(presale[_id].saleActive, "already paused");
+        require(!presale[_id].saleActive, "already paused");
 
-        presale[_id].saleActive = true;
+        presale[_id].saleActive = false;
         emit PresalePaused(_id, block.timestamp);
     }
 
+    /**
+     * @dev Pauses the presale with the specified ID.
+     * @param _id The ID of the presale to unpause.
+     * Requirements:
+     * - The presale must be currently paused.
+     */
     function unPausePresale(uint _id) external checkPresaleId(_id) onlyOwner {
-        require(!presale[_id].saleActive, "not paused");
+        require(presale[_id].saleActive, "not paused");
 
-        presale[_id].saleActive = false;
+        presale[_id].saleActive = true;
         emit PresaleUnpaused(_id, block.timestamp);
     }
 
+    /**
+     * @dev Retrieves the token balance of a user for a specific presale.
+     * @param _id The ID of the presale.
+     * @param _user The address of the user.
+     * @return The token balance of the user for the specified presale.
+     * Requirements:
+     * - The presale ID must be valid.
+     */
     function checkUserBalance(
         uint _id,
         address _user
@@ -211,6 +278,13 @@ contract TokenSaleFactory is Ownable {
         return _userVesting[_id][_user];
     }
 
+    /**
+     * @dev Retrieves the remaining token balance of the presale contract for a specific presale.
+     * @param _id The ID of the presale.
+     * @return The remaining token balance of the presale contract for the specified presale.
+     * Requirements:
+     * - The presale ID must be valid.
+     */
     function presaleTokenBalance(
         uint _id
     ) public view checkPresaleId(_id) returns (uint) {
@@ -219,14 +293,29 @@ contract TokenSaleFactory is Ownable {
         return token.balanceOf(address(this));
     }
 
+    /**
+     * @dev Retrieves the current Ether balance of the contract.
+     * @return The current Ether balance of the contract.
+     */
     function ethBalance() public view returns (uint) {
         return address(this).balance;
     }
 
+    /**
+     * @dev Retrieves the current USDT balance of the contract.
+     * @return The current USDT balance of the contract.
+     */
     function usdtBalance() public view returns (uint) {
         return usdt.balanceOf(address(this));
     }
 
+    /**
+     * @dev Updates the token price for a specific presale.
+     * @param _id The ID of the presale.
+     * @param _newPrice The new price for the presale token.
+     * Requirements:
+     * - The new price must be greater than zero.
+     */
     function updateTokenPrice(
         uint _id,
         uint _newPrice
@@ -238,6 +327,13 @@ contract TokenSaleFactory is Ownable {
         emit UpdatedTokenPrice(_prevValue, _newPrice, block.timestamp);
     }
 
+    /**
+     * @dev Sets the end time for a presale.
+     * @param _id The ID of the presale.
+     * @param _endsAt The new end time for the presale.
+     * Requirements:
+     * - The end time must be after the start time of the presale.
+     */
     function setSaleEndTime(
         uint _id,
         uint _endsAt
@@ -248,6 +344,13 @@ contract TokenSaleFactory is Ownable {
         emit UpdatedSaleEnd(_id, _endsAt, block.timestamp);
     }
 
+    /**
+     * @dev Sets the end time for vesting in a presale.
+     * @param _id The ID of the presale.
+     * @param _vestingEndTime The new end time for vesting in the presale.
+     * Requirements:
+     * - The vesting end time must be after the end time of the presale.
+     */
     function setVestingEndTime(
         uint _id,
         uint _vestingEndTime
@@ -261,10 +364,18 @@ contract TokenSaleFactory is Ownable {
         emit UpdatedVestingEnd(_id, _vestingEndTime, block.timestamp);
     }
 
+    /**
+     * @dev Retrieves the allowance granted by the caller to the contract for spending their USDT tokens.
+     * @return value The allowance granted by the caller to the contract.
+     */
     function getAllowance() internal view returns (uint value) {
         value = usdt.allowance(msg.sender, address(this));
     }
 
+    /**
+     * @dev Retrieves the latest price from the price oracle interface.
+     * @return The latest price retrieved from the oracle.
+     */
     function getLatestPrice() public view returns (uint) {
         (, int price, , , ) = aggregatorInterface.latestRoundData();
         require(price >= 0, "price cannot be negative");
@@ -272,6 +383,12 @@ contract TokenSaleFactory is Ownable {
         return uint(price);
     }
 
+    /**
+     * @dev Calculates the equivalent USD price for a given amount of tokens based on the presale price and precision.
+     * @param _id The ID of the presale.
+     * @param _amount The number of tokens to calculate the price for.
+     * @return usdPrice The calculated USD price for the specified number of tokens.
+     */
     function usdtBuyHelper(
         uint _id,
         uint _amount
@@ -279,6 +396,12 @@ contract TokenSaleFactory is Ownable {
         usdPrice = (_amount * presale[_id].price) / presale[_id].precision;
     }
 
+    /**
+     * @dev Calculates the equivalent amount of ETH required to purchase a given number of tokens in a presale.
+     * @param _id The ID of the presale.
+     * @param _amount The number of tokens to calculate the ETH price for.
+     * @return ethAmount The calculated ETH amount required to purchase the specified number of tokens.
+     */
     function ethBuyHelper(
         uint _id,
         uint _amount
@@ -287,6 +410,11 @@ contract TokenSaleFactory is Ownable {
         ethAmount = (usdPrice * presale[_id].precision) / getLatestPrice();
     }
 
+    /**
+     * @dev Allows users to purchase tokens in a presale using USDT.
+     * @param _id The ID of the presale.
+     * @param _amount The number of tokens to purchase.
+     */
     function buyWithUSDT(uint _id, uint _amount) external checkPresaleId(_id) {
         _verifyPurchase(_id, _amount, msg.sender);
 
@@ -298,6 +426,11 @@ contract TokenSaleFactory is Ownable {
         _tokenPurchase(_id, _amount, msg.sender);
     }
 
+    /**
+     * @dev Allows users to purchase tokens in a presale using ETH.
+     * @param _id The ID of the presale.
+     * @param _amount The number of tokens to purchase.
+     */
     function buyWithEth(
         uint _id,
         uint _amount
@@ -313,6 +446,11 @@ contract TokenSaleFactory is Ownable {
         _tokenPurchase(_id, _amount, msg.sender);
     }
 
+    /**
+     * @dev Allows the holder of vested tokens to claim them after the vesting period has ended.
+     * @param _id The ID of the presale.
+     * @param _holder The address of the token holder.
+     */
     function claimToken(
         uint _id,
         address _holder
@@ -339,21 +477,42 @@ contract TokenSaleFactory is Ownable {
         );
     }
 
+    /**
+     * @dev Allows the owner to withdraw ETH from the contract.
+     * @param _to The address to which ETH will be transferred.
+     * @param _amount The amount of ETH to withdraw.
+     * @notice Requires that the contract has sufficient ETH balance.
+     */
     function withdrawETH(address _to, uint _amount) external onlyOwner {
         require(ethBalance() >= _amount, "insufficient ETH balance");
 
         payable(_to).transfer(_amount);
+        emit WithdrawETH(_to, _amount, block.timestamp);
     }
 
+    /**
+     * @dev Allows the owner to withdraw USDT from the contract.
+     * @param _to The address to which USDT will be transferred.
+     * @param _amount The amount of USDT to withdraw.
+     * @notice Requires that the contract has sufficient USDT balance.
+     */
     function withdrawUSDT(address _to, uint _amount) external onlyOwner {
         require(usdtBalance() >= _amount, "insufficient USDT balance");
 
         usdt.transfer(_to, _amount);
+        emit WithdrawUSDT(_to, _amount, block.timestamp);
     }
 
-    function withdrawToken(
+    /**
+     * @dev Allows the owner to withdraw tokens from the presale contract.
+     * @param _id The ID of the presale from which tokens will be withdrawn.
+     * @param _amount The amount of tokens to withdraw.
+     * @notice Requires that the presale has sufficient token balance.
+     */
+    function withdrawPresaleToken(
         uint _id,
-        uint _amount
+        uint _amount,
+        address _to
     ) external checkPresaleId(_id) onlyOwner {
         require(
             presale[_id].availableTokens >= _amount,
@@ -361,6 +520,14 @@ contract TokenSaleFactory is Ownable {
         );
         IERC20 token = IERC20(presale[_id].saleToken);
 
-        token.transfer(msg.sender, _amount);
+        token.transfer(_to, _amount);
+
+        emit WithdrawPresaleToken(
+            _id,
+            _to,
+            presale[_id].saleToken,
+            _amount,
+            block.timestamp
+        );
     }
 }
