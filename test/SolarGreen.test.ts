@@ -50,7 +50,7 @@ describe("SolarGreen", function () {
     it("should revert if owner or blacklister address is a contract", async function () {
       const [owner] = await ethers.getSigners();
 
-      const AnotherContract = await ethers.getContractFactory("TokenSaleFactory");
+      const AnotherContract = await ethers.getContractFactory("TestUSDT");
       const anotherContract = await AnotherContract.deploy();
 
       const SolarGreen = await ethers.getContractFactory("SolarGreen", owner);
@@ -179,6 +179,27 @@ describe("SolarGreen", function () {
       await expect(token.removeFromBlacklist(blacklister.address)).to.be.revertedWith(
         "account isnt in the blacklist"
       );
+    });
+
+    it("user cant buy and transfer token if it is blacklisted", async function () {
+      const { token, buyer } = await loadFixture(deploy);
+      const amountToken = ethers.parseUnits("100", 18);
+
+      await token.addToBlacklist(buyer.address);
+
+      await expect(token.transfer(buyer.address, amountToken)).to.be.revertedWith("recipient is blocked");
+    });
+    it("cant transfer from token if it is blacklisted", async function () {
+      const { owner, token, buyer, spender } = await loadFixture(deploy);
+      const amountToken = ethers.parseUnits("100", 18);
+
+      await token.addToBlacklist(buyer.address);
+
+      await token.approve(spender.address, amountToken);
+
+      await expect(
+        token.connect(spender).transferFrom(owner.address, buyer.address, amountToken)
+      ).to.be.revertedWith("recipient is blocked");
     });
   });
 });
