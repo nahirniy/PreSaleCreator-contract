@@ -68,6 +68,7 @@ describe("SolarGreen", function () {
       const { owner, buyer, spender, token } = await loadFixture(deploy);
 
       const amount = ethers.parseUnits("8", 18);
+      token.mint(owner.address, amount);
 
       await token.approve(spender.address, amount);
       await token.connect(spender).transferFrom(owner.address, buyer.address, amount);

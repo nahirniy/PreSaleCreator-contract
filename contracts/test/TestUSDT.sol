@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract TestUSTD is ERC20 {
+contract TestUSDT is ERC20 {
     constructor() ERC20("United States Dollar Tether", "USDT") {
         _mint(address(this), 100000000000 ether);
     }

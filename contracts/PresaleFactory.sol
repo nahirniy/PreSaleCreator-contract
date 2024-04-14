@@ -19,6 +19,7 @@ contract PresaleFactory is Ownable {
         uint precision;
         uint vestingEndTime;
         bool saleActive;
+        bool startSale;
     }
 
     mapping(uint => Presale) public presale;
@@ -116,7 +117,8 @@ contract PresaleFactory is Ownable {
         require(
             block.timestamp >= presale[_id].startAt &&
                 block.timestamp <= presale[_id].endsAt &&
-                presale[_id].saleActive,
+                presale[_id].saleActive &&
+                presale[_id].startSale,
             "sale is not active"
         );
         require(
@@ -176,6 +178,7 @@ contract PresaleFactory is Ownable {
         uint _vestingEndTime
     ) external onlyOwner {
         bool _saleActive = false;
+        bool _startSale = false;
 
         require(
             _startTime > block.timestamp && _endTime > _startTime,
@@ -200,7 +203,8 @@ contract PresaleFactory is Ownable {
             _limitPerUser,
             _precision,
             _vestingEndTime,
-            _saleActive
+            _saleActive,
+            _startSale
         );
 
         emit PresaleCreated(
@@ -220,11 +224,10 @@ contract PresaleFactory is Ownable {
      * - There must be tokens available for sale in the contract.
      * - The initial supply of tokens must match the available tokens for sale.
      */
-
     function startSale(uint _id) external checkPresaleId(_id) onlyOwner {
         IERC20 token = IERC20(presale[_id].saleToken);
 
-        require(!presale[_id].saleActive, "presale has already started");
+        require(!presale[_id].startSale, "presale has already started");
         require(
             token.balanceOf(address(this)) > 0,
             "no tokens available for sale"
@@ -234,6 +237,7 @@ contract PresaleFactory is Ownable {
             "incorrect initial supply for sale"
         );
 
+        presale[_id].startSale = true;
         presale[_id].saleActive = true;
     }
 
@@ -244,7 +248,8 @@ contract PresaleFactory is Ownable {
      * - The presale must be currently active.
      */
     function pausePresale(uint _id) external checkPresaleId(_id) onlyOwner {
-        require(!presale[_id].saleActive, "already paused");
+        require(presale[_id].startSale, "sale hasnt started yet");
+        require(presale[_id].saleActive, "already paused");
 
         presale[_id].saleActive = false;
         emit PresalePaused(_id, block.timestamp);
@@ -257,7 +262,8 @@ contract PresaleFactory is Ownable {
      * - The presale must be currently paused.
      */
     function unPausePresale(uint _id) external checkPresaleId(_id) onlyOwner {
-        require(presale[_id].saleActive, "not paused");
+        require(presale[_id].startSale, "sale hasnt started yet");
+        require(!presale[_id].saleActive, "not paused");
 
         presale[_id].saleActive = true;
         emit PresaleUnpaused(_id, block.timestamp);
