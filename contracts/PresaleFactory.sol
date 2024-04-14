@@ -527,6 +527,7 @@ contract PresaleFactory is Ownable {
         IERC20 token = IERC20(presale[_id].saleToken);
 
         token.transfer(_to, _amount);
+        presale[_id].availableTokens -= _amount;
 
         emit WithdrawPresaleToken(
             _id,
