@@ -34,7 +34,10 @@ async function main() {
     vestingEndTime
   );
 
+  const presaleId = await presaler.presaleId();
+
   await token.mint(presaler.target, availableTokens);
+  await presaler.startSale(presaleId);
 
   console.log("SolarGreen address: ", token.target);
   console.log("PresaleFactory address: ", presaler.target);
