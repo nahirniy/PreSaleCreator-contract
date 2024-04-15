@@ -33,6 +33,7 @@ This repository contains the solution for the Dexola Solidity Bootcamp applicati
 4. Then enter decimal and end of vesting when tokens can be claimed.
 5. Next, transfer the required amount of tokens to the contract. IMPORTANT This should be an amount equal to the amount of tokens to sell that you entered when creating the contract.
 6. Then use the startSale function. Enter id your contract.
+7. Enter the presale id, for this use presale (in the read contact section). And then see information about the presale. For example, a presale with id 1 has already been done
 
 ## How to Buy tokens?
 
